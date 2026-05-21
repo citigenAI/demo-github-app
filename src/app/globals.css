@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-brand-deep-saffron: #d97706;
+    --color-brand-ink: #1a1530;
+    --color-brand-ivory: #faf7f0;
+    --color-brand-rose-gold: #c97b63;
+    --color-brand-twilight: #3b3169;
+    --color-brand-gold-accent: #e8c547;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

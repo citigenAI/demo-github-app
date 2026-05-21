@@ -1,0 +1,25 @@
+// Story 1: only User model exists. Other models (Event, Submission, etc.)
+// are added in their owning stories — see docs/stories.md.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")  // pooled connection — used by the app at runtime
+  directUrl = env("DIRECT_URL")    // direct/session connection — used by `prisma migrate`
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      Role     @default(ORGANIZER)
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  ORGANIZER
+  ADMIN
+}
