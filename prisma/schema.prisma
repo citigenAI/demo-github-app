@@ -83,6 +83,7 @@ model Event {
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   auditLog             AuditLog[]
+  submissions          Submission[]
 
   @@index([organizerId])
 }
@@ -98,6 +99,28 @@ model Package {
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
   events            Event[]
+}
+
+model Submission {
+  id               String           @id @default(cuid())
+  eventId          String
+  event            Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  contributorName  String
+  relationship     String
+  email            String?
+  textMessage      String?
+  funnyMemory      String?
+  advice           String?
+  professionalNote String?
+  consentGiven     Boolean
+  consentAt        DateTime
+  status           SubmissionStatus @default(PENDING)
+  adminNote        String?
+  submittedAt      DateTime         @default(now())
+  ipAddress        String?
+
+  @@unique([eventId, email])
+  @@index([eventId, status])
 }
 
 model AuditLog {
@@ -143,4 +166,11 @@ enum PaymentStatus {
   PAID
   REFUNDED
   FAILED
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
 }

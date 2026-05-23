@@ -17,4 +17,7 @@ export const rawEnv = {
   SMTP_PORT: process.env.SMTP_PORT,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   RESEND_FROM_ADDRESS: process.env.RESEND_FROM_ADDRESS,
+  // Contributor rate limiting
+  CONTRIB_RATELIMIT_MAX: process.env.CONTRIB_RATELIMIT_MAX,
+  CONTRIB_RATELIMIT_WINDOW_SEC: process.env.CONTRIB_RATELIMIT_WINDOW_SEC,
 };
