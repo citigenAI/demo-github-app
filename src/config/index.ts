@@ -25,6 +25,10 @@ const ConfigSchema = z
       resendApiKey: z.string().optional(),
       fromAddress: z.string(),
     }),
+    contributor: z.object({
+      rateLimitMax: z.coerce.number().int().positive().default(5),
+      rateLimitWindowSec: z.coerce.number().int().positive().default(600),
+    }),
   })
   .superRefine((data, ctx) => {
     if (data.env === 'production' && !data.email.resendApiKey) {
@@ -56,6 +60,10 @@ function loadConfig(): Config {
       smtpPort: rawEnv.SMTP_PORT,
       resendApiKey: rawEnv.RESEND_API_KEY || undefined,
       fromAddress: rawEnv.RESEND_FROM_ADDRESS,
+    },
+    contributor: {
+      rateLimitMax: rawEnv.CONTRIB_RATELIMIT_MAX,
+      rateLimitWindowSec: rawEnv.CONTRIB_RATELIMIT_WINDOW_SEC,
     },
   });
 
