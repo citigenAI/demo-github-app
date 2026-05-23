@@ -15,6 +15,26 @@ Read these for depth (don't duplicate them here):
 - `docs/stories.md` — the incremental delivery plan (the 20-story map + dependency graph)
 - `docs/design/seqNN-storyNN-*.md` — **per-story design specs (read before implementing a story).** No-code, design-level specifications (exact field names, routes, contracts, validation, behavior) for stories 2–20, so a story can be built without re-deriving decisions. Story 1's original build guide is `docs/stories/story-01-foundation.md`.
 
+## External Operations — Composio MCP (not CLI tools)
+
+`gh` CLI, `vercel` CLI, and similar service CLIs are **not installed**. For all GitHub, Vercel, Supabase, and Resend operations use the **Composio MCP tools** (`mcp__claude_ai_composio__*`):
+
+1. `COMPOSIO_SEARCH_TOOLS` — find the right tool slug for an operation
+2. `COMPOSIO_MULTI_EXECUTE_TOOL` — run the tool, passing `account_id`
+3. `COMPOSIO_MANAGE_CONNECTIONS` with `action: "list"` — refresh account IDs if stale
+
+| Service | Access method | Default `account_id` / notes |
+|---|---|---|
+| GitHub | Composio | `github_molary-harem` (alias: swara-magical, user: swaramedia) |
+| Vercel | Composio | `vercel_dyak-sleck` (alias: innovise-vercel) |
+| Supabase | Composio | `supabase_lamel-recook` (alias: swara-magical, ref: kjzrjaaqendbdyelixkj) |
+| Resend | Composio | `resend_yince-snick` (alias: innovise-resend2) |
+| Stripe | Composio **+** dedicated `mcp__claude_ai_Stripe__*` tools | Composio: `stripe_ancone-exes`; prefer the dedicated Stripe MCP tools for Stripe ops |
+
+`git push` to `swaramedia/*` authenticates via the system Git Credential Manager — use that for pushing branches. Use Composio/MCP for everything else (PRs, merges, Vercel deploys, Supabase API, Resend sends, Stripe setup).
+
+**Stripe MCP note:** The `mcp__claude_ai_Stripe__*` tools (e.g. `stripe_api_execute`, `create_product`, `create_price`, `list_prices`) can manage Stripe resources directly. The app's runtime still needs `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in `.env.development.local` — these cannot be retrieved via API and must be provided by the user.
+
 ## Commands
 
 ```bash
