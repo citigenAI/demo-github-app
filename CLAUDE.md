@@ -12,7 +12,8 @@ Read these for depth (don't duplicate them here):
 - `docs/requirements.md` — product spec, roles, workflows, data model
 - `docs/architecture.md` — system design, deployment, schema, AI tiers (load-bearing decisions)
 - `docs/development-setup.md` — full local setup, external accounts, env vars
-- `docs/stories.md` + `docs/stories/story-NN-*.md` — the incremental delivery plan
+- `docs/stories.md` — the incremental delivery plan (the 20-story map + dependency graph)
+- `docs/design/seqNN-storyNN-*.md` — **per-story design specs (read before implementing a story).** No-code, design-level specifications (exact field names, routes, contracts, validation, behavior) for stories 2–20, so a story can be built without re-deriving decisions. Story 1's original build guide is `docs/stories/story-01-foundation.md`.
 
 ## Commands
 
