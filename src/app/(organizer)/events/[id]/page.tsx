@@ -7,6 +7,7 @@ import { getEvent } from '../actions';
 import { buildContributorUrl, buildWhatsAppShare, buildEmailShare, occasionNouns } from '@/lib/share';
 import { generateContributorQr } from '@/lib/qr';
 import { CopyButton } from './CopyButton';
+import { PayButton } from './PayButton';
 import { Link as LinkIcon, QrCode, Share2, Mail, CalendarDays, Users, Package } from 'lucide-react';
 
 const occasionLabels: Record<string, string> = {
@@ -82,14 +83,24 @@ export default async function EventDetailPage({ params, searchParams }: {
               {event.honoreeName}&apos;s {occasionLabel} tribute
             </h1>
           </div>
-          <span className="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-brand-saffron/10 text-brand-saffron mt-1">
-            Draft
+          <span className={`shrink-0 text-xs font-medium px-2 py-1 rounded-full mt-1 ${
+            event.status === 'ACTIVE'
+              ? 'bg-green-100 text-green-700'
+              : 'bg-brand-saffron/10 text-brand-saffron'
+          }`}>
+            {event.status === 'ACTIVE' ? 'Active' : 'Draft'}
           </span>
         </div>
-        <p className="text-brand-stone text-sm mt-2">
-          Payment is the next step to activate this event.{' '}
-          <span className="text-brand-stone/50">Set up payment coming soon.</span>
-        </p>
+        {event.status === 'DRAFT' ? (
+          <div className="mt-3">
+            <p className="text-brand-stone text-sm mb-3">
+              One payment activates your event and opens it to contributors.
+            </p>
+            <PayButton eventId={event.id} />
+          </div>
+        ) : (
+          <p className="text-green-700 text-sm mt-2 font-medium">Active — accepting contributions.</p>
+        )}
         <Link href="/dashboard" className="text-xs text-brand-stone/70 hover:text-brand-ink mt-1 inline-block">
           ← Back to My Events
         </Link>

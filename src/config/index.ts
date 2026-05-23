@@ -29,6 +29,11 @@ const ConfigSchema = z
       rateLimitMax: z.coerce.number().int().positive().default(5),
       rateLimitWindowSec: z.coerce.number().int().positive().default(600),
     }),
+    stripe: z.object({
+      secretKey: z.string().optional(),
+      publishableKey: z.string().optional(),
+      webhookSecret: z.string().optional(),
+    }),
   })
   .superRefine((data, ctx) => {
     if (data.env === 'production' && !data.email.resendApiKey) {
@@ -37,6 +42,17 @@ const ConfigSchema = z
         path: ['email', 'resendApiKey'],
         message: 'RESEND_API_KEY is required in production',
       });
+    }
+    if (data.env === 'production') {
+      for (const key of ['secretKey', 'publishableKey', 'webhookSecret'] as const) {
+        if (!data.stripe[key]) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['stripe', key],
+            message: `STRIPE_${key === 'secretKey' ? 'SECRET_KEY' : key === 'publishableKey' ? 'PUBLISHABLE_KEY' : 'WEBHOOK_SECRET'} is required in production`,
+          });
+        }
+      }
     }
   });
 
@@ -64,6 +80,11 @@ function loadConfig(): Config {
     contributor: {
       rateLimitMax: rawEnv.CONTRIB_RATELIMIT_MAX,
       rateLimitWindowSec: rawEnv.CONTRIB_RATELIMIT_WINDOW_SEC,
+    },
+    stripe: {
+      secretKey: rawEnv.STRIPE_SECRET_KEY || undefined,
+      publishableKey: rawEnv.STRIPE_PUBLISHABLE_KEY || undefined,
+      webhookSecret: rawEnv.STRIPE_WEBHOOK_SECRET || undefined,
     },
   });
 

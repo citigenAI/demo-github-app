@@ -5,9 +5,13 @@ const db = new PrismaClient();
 
 async function main() {
   // MVP 1 package — seeded in all environments
+  // Stripe product/price IDs created via MCP for acct_1TBqh8P1qRlBcay7 (Hana ESolutions Inc)
   const pkg = await db.package.upsert({
     where: { id: 'pkg_mvp1' },
-    update: {},
+    update: {
+      stripeProductId: 'prod_swara_tribute_mvp1',
+      stripePriceId: 'price_1TaN8gP1qRlBcay7KqKutK81',
+    },
     create: {
       id: 'pkg_mvp1',
       name: 'Magical Memories — Tribute Video',
@@ -16,6 +20,8 @@ async function main() {
       features: ['video_master', 'reel', 'youtube', 'auto_thumbnail', 'download', 'share_page'],
       deliverySlaDays: 7,
       includedRevisions: 0,
+      stripeProductId: 'prod_swara_tribute_mvp1',
+      stripePriceId: 'price_1TaN8gP1qRlBcay7KqKutK81',
       active: true,
     },
   });

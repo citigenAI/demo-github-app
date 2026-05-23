@@ -74,8 +74,12 @@ export default async function DashboardPage() {
                     {occasionLabels[event.occasionType] ?? occasionNouns[event.occasionType]}
                   </p>
                 </div>
-                <span className="shrink-0 text-xs font-medium px-2 py-1 rounded-full bg-brand-saffron/10 text-brand-saffron">
-                  Draft
+                <span className={`shrink-0 text-xs font-medium px-2 py-1 rounded-full ${
+                  event.status === 'ACTIVE'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-brand-saffron/10 text-brand-saffron'
+                }`}>
+                  {event.status === 'ACTIVE' ? 'Active' : 'Draft'}
                 </span>
               </div>
               <div className="flex items-center gap-6 mt-3 text-xs text-brand-stone">

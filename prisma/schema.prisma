@@ -86,6 +86,7 @@ model Event {
   submissions          Submission[]
 
   @@index([organizerId])
+  @@index([stripeSessionId])
 }
 
 model Package {
@@ -96,8 +97,11 @@ model Package {
   features          String[]
   deliverySlaDays   Int
   includedRevisions Int      @default(0)
+  stripeProductId   String?
+  stripePriceId     String?
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   events            Event[]
 }
 
@@ -131,6 +135,19 @@ model AuditLog {
   action    String
   metadata  Json?
   createdAt DateTime @default(now())
+}
+
+model NotificationLog {
+  id            String   @id @default(cuid())
+  eventId       String?
+  recipientType String
+  recipientEmail String?
+  channel       String
+  trigger       String
+  status        String   @default("queued")
+  createdAt     DateTime @default(now())
+
+  @@index([eventId, trigger])
 }
 
 enum Role {
