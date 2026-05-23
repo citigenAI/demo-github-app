@@ -1,6 +1,7 @@
 // Story 1: User model.
-// Story 2: NextAuth adapter models (Account, Session, VerificationToken) + User extensions.
-// Other models (Event, Submission, etc.) are added in their owning stories.
+// Story 2: NextAuth adapter models + User extensions.
+// Story 3: Event, Package, AuditLog + OccasionType/EventStatus/PaymentStatus enums.
+// Other models (Submission, MediaItem, etc.) added in their owning stories.
 
 generator client {
   provider = "prisma-client-js"
@@ -8,8 +9,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")  // pooled connection — used by the app at runtime
-  directUrl = env("DIRECT_URL")    // direct/session connection — used by `prisma migrate`
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -18,10 +19,10 @@ model User {
   name          String?
   role          Role      @default(ORGANIZER)
   createdAt     DateTime  @default(now())
-  // NextAuth adapter fields (added Story 2)
   emailVerified DateTime?
   accounts      Account[]
   sessions      Session[]
+  events        Event[]
 }
 
 model Account {
@@ -61,7 +62,85 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model Event {
+  id                   String        @id @default(cuid())
+  slug                 String        @unique
+  organizerId          String
+  organizer            User          @relation(fields: [organizerId], references: [id])
+  honoreeName          String
+  occasionType         OccasionType
+  eventDate            DateTime
+  submissionDeadline   DateTime
+  deliveryDate         DateTime
+  theme                String
+  musicMood            String
+  expectedContributors Int
+  packageId            String
+  package              Package       @relation(fields: [packageId], references: [id])
+  paymentStatus        PaymentStatus @default(PENDING)
+  stripeSessionId      String?
+  status               EventStatus   @default(DRAFT)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  auditLog             AuditLog[]
+
+  @@index([organizerId])
+}
+
+model Package {
+  id                String   @id @default(cuid())
+  name              String
+  priceCents        Int
+  currency          String   @default("usd")
+  features          String[]
+  deliverySlaDays   Int
+  includedRevisions Int      @default(0)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  events            Event[]
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  eventId   String?
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  actorId   String?
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
 enum Role {
   ORGANIZER
   ADMIN
+}
+
+enum OccasionType {
+  GRADUATION
+  BIRTHDAY
+  WEDDING
+  ANNIVERSARY
+  RETIREMENT
+  BUSINESS_EVENT
+}
+
+enum EventStatus {
+  DRAFT
+  ACTIVE
+  DEADLINE_PASSED
+  AWAITING_ROUTING_APPROVAL
+  AI_ROUTED
+  MANUAL_ROUTED
+  EDITOR_ASSIGNED
+  EDITING_IN_PROGRESS
+  FINAL_VIDEO_UPLOADED
+  IN_REVIEW
+  DELIVERED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
 }
