@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { slugify, generateSlug, isValidSlug } from '@/lib/slug';
 import { buildContributorUrl, buildWhatsAppShare, buildEmailShare, occasionNouns } from '@/lib/share';
 import { generateContributorQr } from '@/lib/qr';
-import { CreateEventSchema, THEMES, MUSIC_MOODS } from '@/app/(organizer)/events/schema';
+import { CreateEventSchema, UpdateEventSchema, THEMES, MUSIC_MOODS } from '@/app/(organizer)/events/schema';
 
 const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -128,6 +128,12 @@ describe('buildWhatsAppShare', () => {
     const { message } = buildWhatsAppShare({ ...baseInput, occasionType: 'BIRTHDAY' });
     expect(message).toContain('wish');
   });
+
+  it('uses the event name when provided', () => {
+    const { message } = buildWhatsAppShare({ ...baseInput, eventName: "Nirvan's 10th Birthday" });
+    expect(message).toContain("tribute for Nirvan's 10th Birthday");
+    expect(message).not.toContain('!');
+  });
 });
 
 describe('buildEmailShare', () => {
@@ -164,6 +170,14 @@ describe('buildEmailShare', () => {
     expect(body).not.toContain('!');
   });
 
+  it('uses the event name in subject and body when provided', () => {
+    const { subject, body } = buildEmailShare({ ...baseInput, eventName: "Nirvan's 10th Birthday" });
+    expect(subject).toContain("Nirvan's 10th Birthday");
+    expect(body).toContain("Nirvan's 10th Birthday");
+    expect(subject).not.toContain('!');
+    expect(body).not.toContain('!');
+  });
+
   it('occasion noun correct for all six occasions', () => {
     const occasions = Object.keys(occasionNouns) as string[];
     for (const occasionType of occasions) {
@@ -185,12 +199,14 @@ describe('generateContributorQr', () => {
 
 describe('CreateEventSchema', () => {
   function validPayload() {
-    const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    const deliveryDate = new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // Logical ordering: now < submissionDeadline (+25) <= deliveryDate (+28) <= eventDate (+30)
+    const future = new Date(Date.now() + 25 * 24 * 60 * 60 * 1000).toISOString();
+    const deliveryDate = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     return {
       honoreeName: 'Riya Sharma',
+      organizerName: 'Priya Sharma',
       occasionType: 'GRADUATION' as const,
-      eventDate: new Date(Date.now() + 32 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      eventDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       submissionDeadline: future,
       deliveryDate,
       theme: THEMES[0],
@@ -231,6 +247,31 @@ describe('CreateEventSchema', () => {
     expect(issues.some((i) => i.path[0] === 'deliveryDate')).toBe(true);
   });
 
+  it('rejects deliveryDate after the event date', () => {
+    const deliveryAfterEvent = new Date(Date.now() + 40 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const result = CreateEventSchema.safeParse({ ...validPayload(), deliveryDate: deliveryAfterEvent });
+    expect(result.success).toBe(false);
+    expect(result.error!.issues.some((i) => i.path[0] === 'deliveryDate')).toBe(true);
+  });
+
+  it('rejects a submission deadline after the event date', () => {
+    const deadlineAfterEvent = new Date(Date.now() + 40 * 24 * 60 * 60 * 1000).toISOString();
+    const delivery = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const result = CreateEventSchema.safeParse({
+      ...validPayload(),
+      submissionDeadline: deadlineAfterEvent,
+      deliveryDate: delivery,
+    });
+    expect(result.success).toBe(false);
+    expect(result.error!.issues.some((i) => i.path[0] === 'submissionDeadline')).toBe(true);
+  });
+
+  it('rejects an invalid event date', () => {
+    const result = CreateEventSchema.safeParse({ ...validPayload(), eventDate: 'not-a-date' });
+    expect(result.success).toBe(false);
+    expect(result.error!.issues.some((i) => i.path[0] === 'eventDate')).toBe(true);
+  });
+
   it('rejects expectedContributors below 1', () => {
     const result = CreateEventSchema.safeParse({ ...validPayload(), expectedContributors: 0 });
     expect(result.success).toBe(false);
@@ -254,5 +295,41 @@ describe('CreateEventSchema', () => {
   it('rejects missing packageId', () => {
     const result = CreateEventSchema.safeParse({ ...validPayload(), packageId: '' });
     expect(result.success).toBe(false);
+  });
+
+  describe('UpdateEventSchema (edit)', () => {
+    function validUpdate() {
+      return {
+        eventDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+        submissionDeadline: new Date(Date.now() + 25 * 86400000).toISOString(),
+        deliveryDate: new Date(Date.now() + 28 * 86400000).toISOString().split('T')[0],
+        theme: THEMES[0],
+        musicMood: MUSIC_MOODS[0],
+      };
+    }
+
+    it('accepts a valid update', () => {
+      expect(UpdateEventSchema.safeParse(validUpdate()).success).toBe(true);
+    });
+
+    it('rejects delivery after the event date', () => {
+      const deliveryAfterEvent = new Date(Date.now() + 40 * 86400000).toISOString().split('T')[0];
+      expect(UpdateEventSchema.safeParse({ ...validUpdate(), deliveryDate: deliveryAfterEvent }).success).toBe(false);
+    });
+
+    it('rejects a past submission deadline', () => {
+      expect(UpdateEventSchema.safeParse({ ...validUpdate(), submissionDeadline: new Date(Date.now() - 1000).toISOString() }).success).toBe(false);
+    });
+  });
+
+  it('rejects missing organizerName', () => {
+    const result = CreateEventSchema.safeParse({ ...validPayload(), organizerName: '' });
+    expect(result.success).toBe(false);
+    expect(result.error!.issues.some((i) => i.path[0] === 'organizerName')).toBe(true);
+  });
+
+  it('accepts an optional event name and a blank one', () => {
+    expect(CreateEventSchema.safeParse({ ...validPayload(), name: "Manu's 16th Birthday" }).success).toBe(true);
+    expect(CreateEventSchema.safeParse({ ...validPayload(), name: '' }).success).toBe(true);
   });
 });

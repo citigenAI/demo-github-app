@@ -59,12 +59,14 @@ export default async function EventDetailPage({ params, searchParams }: {
     occasionType: event.occasionType,
     contributorUrl,
     submissionDeadline: event.submissionDeadline,
+    eventName: event.name,
   });
   const email = buildEmailShare({
     honoreeName: event.honoreeName,
     occasionType: event.occasionType,
     contributorUrl,
     submissionDeadline: event.submissionDeadline,
+    eventName: event.name,
   });
 
   const noun = occasionNouns[event.occasionType] ?? 'tribute';
@@ -80,8 +82,11 @@ export default async function EventDetailPage({ params, searchParams }: {
               <p className="text-sm text-brand-saffron mb-2">Your event is ready to share.</p>
             )}
             <h1 className="font-display text-3xl font-semibold text-brand-ink">
-              {event.honoreeName}&apos;s {occasionLabel} tribute
+              {event.name ?? `${event.honoreeName}'s ${occasionLabel} tribute`}
             </h1>
+            {event.organizer?.name && (
+              <p className="text-brand-stone text-sm mt-1">Organized by {event.organizer.name}</p>
+            )}
           </div>
           <span className={`shrink-0 text-xs font-medium px-2 py-1 rounded-full mt-1 ${
             event.status === 'ACTIVE'
@@ -211,6 +216,12 @@ export default async function EventDetailPage({ params, searchParams }: {
               </div>
             )}
           </dl>
+          <Link
+            href={`/events/${event.id}/edit`}
+            className="mt-4 inline-block text-xs font-medium text-brand-saffron hover:underline"
+          >
+            Edit details
+          </Link>
         </SectionCard>
       </div>
     </main>

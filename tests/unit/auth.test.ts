@@ -56,12 +56,13 @@ describe('config — auth + email vars', () => {
     await expect(import('@/config')).rejects.toThrow(/auth\.secret/);
   });
 
-  it('throws in production when RESEND_API_KEY is missing', async () => {
+  it('does not throw in production when RESEND_API_KEY is missing (optional everywhere)', async () => {
     Object.entries(baseEnv()).forEach(([k, v]) => vi.stubEnv(k, v));
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('RESEND_API_KEY', '');
 
-    await expect(import('@/config')).rejects.toThrow(/RESEND_API_KEY/);
+    const { config } = await import('@/config');
+    expect(config.email.resendApiKey).toBeUndefined();
   });
 
   it('does not throw in development when RESEND_API_KEY is absent', async () => {
@@ -125,13 +126,15 @@ describe('NextAuth error code mapping', () => {
 describe('email template', () => {
   it('subject matches spec', async () => {
     const { buildEmailHtml, buildEmailText } = await import('@/lib/email');
-    const html = buildEmailHtml('https://example.com/verify');
-    const text = buildEmailText('https://example.com/verify');
+    const html = buildEmailHtml('https://example.com/verify', '123456');
+    const text = buildEmailText('https://example.com/verify', '123456');
 
     expect(html).toContain('https://example.com/verify');
+    expect(html).toContain('123456');
     expect(html).toContain('by Swara Media');
     // plaintext copy must have no exclamation marks (HTML has <!DOCTYPE> so skip HTML check)
     expect(text).toContain('https://example.com/verify');
+    expect(text).toContain('123456');
     expect(text).toContain('by Swara Media');
     expect(text).not.toContain('!');
   });

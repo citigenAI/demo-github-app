@@ -35,26 +35,6 @@ const ConfigSchema = z
       webhookSecret: z.string().optional(),
     }),
   })
-  .superRefine((data, ctx) => {
-    if (data.env === 'production' && !data.email.resendApiKey) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['email', 'resendApiKey'],
-        message: 'RESEND_API_KEY is required in production',
-      });
-    }
-    if (data.env === 'production') {
-      for (const key of ['secretKey', 'publishableKey', 'webhookSecret'] as const) {
-        if (!data.stripe[key]) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['stripe', key],
-            message: `STRIPE_${key === 'secretKey' ? 'SECRET_KEY' : key === 'publishableKey' ? 'PUBLISHABLE_KEY' : 'WEBHOOK_SECRET'} is required in production`,
-          });
-        }
-      }
-    }
-  });
 
 export type Config = z.infer<typeof ConfigSchema>;
 

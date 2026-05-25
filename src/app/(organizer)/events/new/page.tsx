@@ -7,11 +7,14 @@ export default async function NewEventPage() {
   const session = await auth();
   if (!session?.user) redirect('/login');
 
-  const packages = await db.package.findMany({
-    where: { active: true },
-    select: { id: true, name: true, priceCents: true, currency: true, features: true, deliverySlaDays: true, includedRevisions: true },
-    orderBy: { createdAt: 'asc' },
-  });
+  const [packages, currentUser] = await Promise.all([
+    db.package.findMany({
+      where: { active: true },
+      select: { id: true, name: true, priceCents: true, currency: true, features: true, deliverySlaDays: true, includedRevisions: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+    db.user.findUnique({ where: { id: session.user.id }, select: { name: true } }),
+  ]);
 
   return (
     <main className="px-6 py-12 max-w-2xl mx-auto">
@@ -19,7 +22,7 @@ export default async function NewEventPage() {
       <p className="text-brand-stone text-sm mb-8">
         Creating your event is free. You&apos;ll set up payment in the next step.
       </p>
-      <CreateEventForm packages={packages} />
+      <CreateEventForm packages={packages} defaultOrganizerName={currentUser?.name ?? ''} />
     </main>
   );
 }

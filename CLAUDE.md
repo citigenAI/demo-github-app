@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Swara Magical Memories** — an AI-assisted tribute-video platform (by Swara Media). Organizers create an event, contributors upload any mix of video/voice/photo/text, an AI pipeline analyzes submissions, and an admin routes each event to either an automated AI render or a human editor before delivering a final video.
 
-The repo is built **incrementally as 20 deployable stories** (`docs/stories.md`). It is currently at **Story 1 (foundation/skeleton)**: landing page, `/api/health`, the config/db/redis/logger libs, and a `User`-only Prisma schema. Most of the architecture below is *target* design, not yet implemented — check the code before assuming a feature exists.
+The repo is built **incrementally as 20 deployable stories** (`docs/stories.md`). **Stories 1–5 are shipped:** foundation (landing page, `/api/health`, config/db/redis/logger libs), organizer auth (NextAuth email magic-link), event-creation wizard + My Events dashboard, Stripe checkout + webhook activation, and the public contributor text-submission form. The Prisma schema currently has `User`/`Account`/`Session`/`VerificationToken`, `Event`, `Package`, `Submission`, `AuditLog`, and `NotificationLog`. Everything beyond Story 5 (media uploads, AI pipeline, routing, delivery) is still *target* design — check the code before assuming a feature exists.
 
 Read these for depth (don't duplicate them here):
 - `docs/requirements.md` — product spec, roles, workflows, data model
@@ -49,6 +49,7 @@ npm run test:watch   # Vitest, watch mode
 npm run prisma:generate   # Regenerate Prisma client (also run after editing schema.prisma)
 npm run prisma:migrate    # prisma migrate dev (uses DIRECT_URL)
 npm run prisma:studio     # Browse the DB
+npm run seed              # prisma/seed.ts — seeds the MVP1 Package (needed for event creation/checkout) + dev users & sample events (skipped when NODE_ENV=production)
 
 # Run one test file / one test by name:
 npx vitest run tests/unit/config.test.ts
@@ -65,8 +66,11 @@ docker compose up -d          # start;  add -v to `docker compose down -v` to wi
 `next dev` loads `.env.development.local`, but **`next build` and `next start` run in production mode and do NOT load it**. Because the config module validates env at import time (see below), `npm run build`/`npm run start` will throw `Invalid configuration` unless you supply the required vars yourself, e.g.:
 
 ```bash
-DATABASE_URL='...' REDIS_URL='...' NEXT_PUBLIC_APP_URL='...' npm run build
+DATABASE_URL='...' REDIS_URL='...' NEXT_PUBLIC_APP_URL='...' \
+  NEXTAUTH_SECRET='<32+ chars>' NEXTAUTH_URL='...' RESEND_FROM_ADDRESS='...' npm run build
 ```
+
+(The required set grows as stories add config — the authoritative list is whatever `src/config/index.ts` marks non-optional. Stripe keys are optional; the app degrades gracefully when they're absent.)
 
 For ordinary local work prefer `npm run dev`.
 
@@ -89,7 +93,11 @@ Things worth knowing before you build a feature:
 - **Config is validated at boot.** Missing/malformed env fails fast with a clear Zod error rather than a silent runtime bug (this is the root of the build caveat above).
 - **Import alias:** `@/*` → `src/*` (tsconfig + vite-tsconfig-paths for Vitest).
 - **Prisma uses two URLs:** `DATABASE_URL` is the pooled connection for app runtime; `DIRECT_URL` is the direct connection for migrations. Environments are isolated by **Postgres schema** (`swara_dev`/`swara_test`/`swara_prd`) on a single Supabase project, not by separate databases, because the Supabase pooler only routes to the `postgres` database.
-- **Schema grows per story.** `prisma/schema.prisma` intentionally has only the models a shipped story needs (currently `User`). The full target schema lives in `architecture.md` §7.1 — add models in their owning story, not ahead of time.
+- **Schema grows per story.** `prisma/schema.prisma` intentionally has only the models shipped stories need (currently the nine models listed in "What this is"). The full target schema lives in `architecture.md` §7.1 — add models in their owning story, not ahead of time.
+- **Auth config is split for the Edge runtime.** `src/auth.config.ts` is the edge-safe `NextAuthConfig` (JWT strategy, no Prisma, no Nodemailer) and is imported by `src/middleware.ts` (Edge) *and* by `src/lib/auth.ts`, which layers on the Prisma adapter + Nodemailer provider for the Node runtime. Don't import `@/lib/auth` from middleware. The user `role` rides on the JWT as a custom claim (set in the `jwt`/`session` callbacks), so it's readable without a DB hit — `@ts-expect-error` accompanies those reads until the session type is augmented.
+- **Server Actions are the write path** (`(organizer)/events/actions.ts`, `contribute/[slug]/actions.ts`): co-located `actions.ts` + `schema.ts` (Zod), `'use server'`, gated by a `requireOrganizer()`-style auth check, validating with `safeParse`. They **return** a discriminated result (`{ id, slug }` on success, `{ error, fields }` on failure) rather than throwing — callers branch on the shape.
+- **Stripe webhook is the source of truth for activation** (`api/stripe/webhook/route.ts`, `runtime = 'nodejs'`): it reads the raw body via `req.text()`, verifies the signature, and is idempotent (no-ops if already `ACTIVE`/`PAID`). It updates the event, writes an `AuditLog`, and enqueues a `NotificationLog` row in one `$transaction`. The checkout success page does **not** activate. The `stripe` client is `null` when keys are absent — guard before use.
+- **Side effects are recorded, not fired (yet).** Privileged actions write `AuditLog` entries, and notifications are written as `NotificationLog` rows with `status: 'queued'` (the actual sender lands with the worker stories). The IP rate limiter (`src/lib/ratelimit.ts`) **fails open** when Redis is unavailable.
 
 ## Testing
 

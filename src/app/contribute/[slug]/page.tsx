@@ -45,6 +45,7 @@ export default async function ContributePage({ params }: { params: Promise<{ slu
       occasionType: true,
       status: true,
       submissionDeadline: true,
+      organizer: { select: { name: true } },
     },
   });
 
@@ -104,6 +105,9 @@ export default async function ContributePage({ params }: { params: Promise<{ slu
         <p className="text-brand-stone text-sm">
           Submissions close {formatDeadlineLong(event.submissionDeadline)}.
         </p>
+        {event.organizer?.name && (
+          <p className="text-brand-stone text-sm mt-1">Organized by {event.organizer.name}</p>
+        )}
       </div>
       <ContributorForm slug={slug} honoreeName={event.honoreeName} isBusiness={business} />
     </Shell>

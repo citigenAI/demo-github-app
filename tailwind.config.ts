@@ -6,9 +6,11 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
+          saffron: '#E08A1C',
           'deep-saffron': '#D97706',
           ink: '#1A1530',
           ivory: '#FAF7F0',
+          stone: '#6B6678',
           'rose-gold': '#C97B63',
           twilight: '#3B3169',
           'gold-accent': '#E8C547',

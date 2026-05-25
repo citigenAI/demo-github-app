@@ -13,7 +13,7 @@ type VerificationRequestParams = {
   request: Request;
 };
 
-export function buildEmailHtml(url: string): string {
+export function buildEmailHtml(url: string, code: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -25,16 +25,15 @@ export function buildEmailHtml(url: string): string {
           <span style="font-family:Georgia,serif;font-size:24px;font-weight:600;color:#C2410C">Swara</span>
           <span style="font-family:Georgia,serif;font-size:18px;font-weight:300;color:#1C1917"> Magical Memories</span>
         </td></tr>
-        <tr><td style="padding-bottom:24px">
+        <tr><td style="padding-bottom:16px">
           <p style="margin:0;font-size:16px;line-height:1.6">Hi,</p>
-          <p style="margin:16px 0;font-size:16px;line-height:1.6">Use the button below to sign in to Swara Magical Memories. The link is valid for 24 hours and can be used once.</p>
+          <p style="margin:16px 0;font-size:16px;line-height:1.6">Enter this code to sign in to Swara Magical Memories. It's valid for 10 minutes and can be used once.</p>
         </td></tr>
-        <tr><td style="padding-bottom:32px;text-align:center">
-          <a href="${url}" style="display:inline-block;background:#C2410C;color:#FFFFF8;text-decoration:none;font-size:16px;font-weight:600;padding:14px 32px;border-radius:6px">Sign in</a>
+        <tr><td style="padding-bottom:24px;text-align:center">
+          <div style="font-family:'Courier New',monospace;font-size:36px;font-weight:700;letter-spacing:10px;color:#1C1917;background:#F5F5F4;border-radius:8px;padding:20px 0">${code}</div>
         </td></tr>
         <tr><td style="padding-bottom:24px">
-          <p style="margin:0;font-size:14px;color:#57534E">If the button doesn't work, copy and paste this link into your browser:</p>
-          <p style="margin:8px 0;font-size:12px;color:#78716C;word-break:break-all">${url}</p>
+          <p style="margin:0;font-size:14px;color:#57534E">Prefer a link? You can also <a href="${url}" style="color:#C2410C">click here to sign in</a>.</p>
         </td></tr>
         <tr><td style="border-top:1px solid #E7E5E4;padding-top:24px">
           <p style="margin:0;font-size:14px;color:#78716C">If you didn't request this, you can safely ignore this email.</p>
@@ -47,14 +46,16 @@ export function buildEmailHtml(url: string): string {
 </html>`;
 }
 
-export function buildEmailText(url: string): string {
+export function buildEmailText(url: string, code: string): string {
   return [
     'Sign in to Swara Magical Memories',
     '',
     'Hi,',
     '',
-    'Use the link below to sign in. The link is valid for 24 hours and can be used once.',
+    `Your sign-in code is: ${code}`,
+    'It is valid for 10 minutes and can be used once.',
     '',
+    'Prefer a link? You can also sign in here:',
     url,
     '',
     "If you didn't request this, you can safely ignore this email.",
@@ -67,10 +68,11 @@ export function buildEmailText(url: string): string {
 export async function sendVerificationRequest({
   identifier,
   url,
+  token,
 }: VerificationRequestParams): Promise<void> {
-  const subject = 'Your sign-in link for Swara Magical Memories';
-  const html = buildEmailHtml(url);
-  const text = buildEmailText(url);
+  const subject = 'Your sign-in code for Swara Magical Memories';
+  const html = buildEmailHtml(url, token);
+  const text = buildEmailText(url, token);
 
   const useProd = config.env === 'production' && !!config.email.resendApiKey;
 
@@ -84,7 +86,7 @@ export async function sendVerificationRequest({
       text,
     });
     if (error) {
-      logger.warn({ event: 'auth.magic_link.failed', error: error.message }, 'Magic link send failed (Resend)');
+      logger.warn({ event: 'auth.otp.failed', error: error.message }, 'Sign-in code send failed (Resend)');
       throw new Error(`Resend send failed: ${error.message}`);
     }
   } else {
@@ -103,5 +105,5 @@ export async function sendVerificationRequest({
     });
   }
 
-  logger.info({ event: 'auth.magic_link.sent' }, 'Magic link sent');
+  logger.info({ event: 'auth.otp.sent' }, 'Sign-in code sent');
 }

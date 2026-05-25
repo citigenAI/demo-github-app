@@ -1,20 +1,18 @@
 import NextAuth from 'next-auth';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import Nodemailer from 'next-auth/providers/nodemailer';
+import { randomInt } from 'node:crypto';
 import { db } from '@/lib/db';
 import { config } from '@/config';
 import { logger } from '@/lib/logger';
 import { sendVerificationRequest } from '@/lib/email';
+import { authConfig } from '@/auth.config';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(db),
-  session: { strategy: 'database', maxAge: 30 * 24 * 60 * 60, updateAge: 24 * 60 * 60 },
+  session: { strategy: 'jwt' as const, maxAge: 30 * 24 * 60 * 60 },
   secret: config.auth.secret,
-  pages: {
-    signIn: '/login',
-    verifyRequest: '/login?state=check-email',
-    error: '/login',
-  },
   providers: [
     Nodemailer({
       server: {
@@ -24,23 +22,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         secure: false,
       },
       from: config.email.fromAddress,
-      maxAge: 24 * 60 * 60,
+      // OTP login: the verification token IS a 6-digit code the user types back.
+      // Valid for 10 minutes.
+      maxAge: 10 * 60,
+      generateVerificationToken: () => randomInt(0, 1_000_000).toString().padStart(6, '0'),
       sendVerificationRequest,
     }),
   ],
-  callbacks: {
-    session({ session, user }) {
-      session.user.id = user.id;
-      // @ts-expect-error role is added via Prisma adapter
-      session.user.role = user.role;
-      return session;
-    },
-    // Seam: Story 7 adds admin domain enforcement here for the Google provider.
-    // For now all email sign-ins are allowed.
-    signIn() {
-      return true;
-    },
-  },
   events: {
     signIn({ user }) {
       logger.info({ userId: user.id, event: 'auth.signin' }, 'User signed in');

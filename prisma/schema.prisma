@@ -68,6 +68,7 @@ model Event {
   organizerId          String
   organizer            User          @relation(fields: [organizerId], references: [id])
   honoreeName          String
+  name                 String?
   occasionType         OccasionType
   eventDate            DateTime
   submissionDeadline   DateTime
