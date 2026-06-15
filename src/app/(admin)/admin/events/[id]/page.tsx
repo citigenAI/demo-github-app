@@ -2,13 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/lib/db';
 import { computeSlaRisk, daysUntil } from '@/lib/sla';
-
-const STATUS_BADGE: Record<string, string> = {
-  PENDING: 'bg-brand-stone/10 text-brand-stone',
-  APPROVED: 'bg-green-100 text-green-700',
-  REJECTED: 'bg-red-100 text-red-700',
-  FLAGGED: 'bg-amber-100 text-amber-800',
-};
+import { SubmissionActions } from './SubmissionActions';
 
 function fmtDate(d: Date) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -33,7 +27,14 @@ export default async function AdminEventDetailPage({
       package: { select: { name: true, deliverySlaDays: true } },
       submissions: {
         orderBy: { submittedAt: 'desc' },
-        include: {
+        select: {
+          id: true,
+          contributorName: true,
+          relationship: true,
+          email: true,
+          submittedAt: true,
+          status: true,
+          adminNote: true,
           mediaItems: { select: { id: true, type: true, sizeBytes: true, originalName: true } },
         },
       },
@@ -134,11 +135,11 @@ export default async function AdminEventDetailPage({
                   <td className="px-4 py-3 text-brand-stone">{s.email ?? '—'}</td>
                   <td className="px-4 py-3 text-brand-stone">{fmtDate(s.submittedAt)}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[s.status] ?? 'bg-brand-stone/10 text-brand-stone'}`}
-                    >
-                      {s.status}
-                    </span>
+                    <SubmissionActions
+                      submissionId={s.id}
+                      initialStatus={s.status}
+                      initialNote={s.adminNote}
+                    />
                   </td>
                   <td className="px-4 py-3 text-right text-brand-ink">{s.mediaItems.length}</td>
                 </tr>
