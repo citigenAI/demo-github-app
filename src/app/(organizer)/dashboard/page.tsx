@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { listMyEvents } from '../events/actions';
 import { occasionNouns } from '@/lib/share';
-import { CalendarDays, Users } from 'lucide-react';
+import { CalendarDays, Users, Plus } from 'lucide-react';
 
 const occasionLabels: Record<string, string> = {
   GRADUATION: 'Graduation',
@@ -15,12 +15,7 @@ const occasionLabels: Record<string, string> = {
 };
 
 function formatDate(date: Date) {
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
 export default async function DashboardPage() {
@@ -33,89 +28,104 @@ export default async function DashboardPage() {
   const { events } = result;
 
   return (
-    <main className="px-6 py-12 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="font-display text-3xl font-semibold text-brand-ink">My Events</h1>
+    <main className="px-6 md:px-10 py-12 max-w-5xl mx-auto">
+      {/* Page header */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-12">
+        <h1 className="font-display text-3xl md:text-4xl font-semibold text-brand-ink leading-tight">
+          My events
+        </h1>
         <Link
           href="/events/new"
-          className="bg-brand-saffron text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-2 bg-brand-deep-saffron text-white text-sm font-medium px-6 py-2.5 rounded-full hover:opacity-90 transition-all shadow-sm active:scale-95"
         >
+          <Plus size={16} strokeWidth={2.25} />
           Create event
         </Link>
-      </div>
+      </header>
 
       {events.length === 0 ? (
-        <div className="text-center py-16 px-6 border border-dashed border-brand-stone/20 rounded-xl">
-          <h2 className="font-display text-2xl font-semibold text-brand-ink mb-2">
+        // Empty state
+        <section className="bg-white border border-brand-ink/8 rounded-2xl px-8 py-12 md:px-16 md:py-16 text-center max-w-3xl mx-auto shadow-sm">
+          <h2 className="font-display text-2xl md:text-3xl font-semibold text-brand-ink mb-3">
             Welcome to Swara Magical Memories
           </h2>
-          <p className="text-brand-stone mb-10 text-sm max-w-md mx-auto">
+          <p className="text-brand-stone text-base mb-10 max-w-md mx-auto">
             Let&apos;s create your first tribute to start collecting wishes.
           </p>
 
-          <ol className="grid gap-6 sm:grid-cols-3 max-w-2xl mx-auto mb-10 text-left">
+          <ol className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 max-w-2xl mx-auto">
             {[
-              { title: 'Create your event', body: "Tell us who it's for, your theme, and the deadline." },
-              { title: 'Share the link', body: 'Friends and family add their wishes: video, voice, photo, or text.' },
-              { title: 'We make the video', body: 'We turn every wish into one magical tribute video.' },
+              { title: 'Create your event', body: 'Tell us about the occasion in under a minute.' },
+              { title: 'Share the link', body: 'Friends and family submit video, voice, photo, or text.' },
+              { title: 'We make the video', body: 'A polished tribute lands before the big day.' },
             ].map((step, i) => (
-              <li key={i} className="flex gap-3">
-                <span className="shrink-0 w-7 h-7 rounded-full bg-brand-saffron/10 text-brand-saffron flex items-center justify-center text-sm font-semibold">
+              <li key={i} className="flex flex-col items-center">
+                <div className="w-11 h-11 bg-brand-deep-saffron text-white rounded-full flex items-center justify-center font-display text-base font-semibold mb-4 shadow-sm">
                   {i + 1}
-                </span>
-                <div>
-                  <p className="font-medium text-brand-ink text-sm leading-tight">{step.title}</p>
-                  <p className="text-brand-stone text-xs mt-1 leading-relaxed">{step.body}</p>
                 </div>
+                <p className="font-medium text-brand-ink text-sm leading-tight">{step.title}</p>
+                <p className="text-brand-stone text-xs mt-1 leading-relaxed">{step.body}</p>
               </li>
             ))}
           </ol>
 
           <Link
             href="/events/new"
-            className="inline-block bg-brand-saffron text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+            className="inline-block bg-brand-deep-saffron text-white text-sm font-medium px-10 py-3.5 rounded-full hover:opacity-90 transition-all shadow-md active:scale-95"
           >
             Create event
           </Link>
-        </div>
+        </section>
       ) : (
-        <div className="space-y-4">
-          {events.map((event) => (
-            <Link
-              key={event.id}
-              href={`/events/${event.id}`}
-              className="block border border-brand-stone/10 rounded-xl p-5 bg-white hover:border-brand-saffron/30 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-display text-lg font-semibold text-brand-ink leading-tight">
-                    {event.name ?? event.honoreeName}
-                  </p>
-                  <p className="text-brand-stone text-sm mt-0.5">
-                    {occasionLabels[event.occasionType] ?? occasionNouns[event.occasionType]}
-                  </p>
-                </div>
-                <span className={`shrink-0 text-xs font-medium px-2 py-1 rounded-full ${
-                  event.status === 'ACTIVE'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-brand-saffron/10 text-brand-saffron'
-                }`}>
-                  {event.status === 'ACTIVE' ? 'Active' : 'Draft'}
-                </span>
-              </div>
-              <div className="flex items-center gap-6 mt-3 text-xs text-brand-stone">
-                <span className="flex items-center gap-1.5">
-                  <CalendarDays size={14} />
-                  Submissions close {formatDate(event.submissionDeadline)}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Users size={14} />
-                  {event.expectedContributors} expected
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        // List state
+        <section>
+          <p className="text-xs uppercase tracking-widest text-brand-stone mb-5 font-medium">
+            Your tributes ({events.length})
+          </p>
+          <div className="space-y-4">
+            {events.map((event) => {
+              const occasionLabel = occasionLabels[event.occasionType] ?? occasionNouns[event.occasionType];
+              const isActive = event.status === 'ACTIVE';
+              return (
+                <Link
+                  key={event.id}
+                  href={`/events/${event.id}`}
+                  className="group block bg-white border border-brand-ink/8 rounded-2xl p-6 hover:shadow-lg hover:border-brand-deep-saffron/20 transition-all duration-300"
+                >
+                  <div className="flex justify-between items-start gap-4 mb-4">
+                    <div className="flex flex-col gap-2 min-w-0">
+                      <h4 className="font-display text-xl font-semibold text-brand-ink leading-tight group-hover:text-brand-deep-saffron transition-colors">
+                        {event.name ?? event.honoreeName}
+                      </h4>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-brand-gold-accent/20 text-brand-twilight text-[10px] uppercase tracking-wider font-semibold w-fit">
+                        {occasionLabel}
+                      </span>
+                    </div>
+                    <span
+                      className={`shrink-0 inline-flex items-center px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold ${
+                        isActive
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-brand-deep-saffron/10 text-brand-deep-saffron'
+                      }`}
+                    >
+                      {isActive ? 'Active' : 'Draft'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-brand-stone">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays size={16} className="text-brand-deep-saffron" strokeWidth={1.75} />
+                      <span>Submissions close {formatDate(event.submissionDeadline)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Users size={16} className="text-brand-deep-saffron" strokeWidth={1.75} />
+                      <span>{event.expectedContributors} expected</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
       )}
     </main>
   );
