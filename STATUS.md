@@ -32,15 +32,13 @@ Running at **http://localhost:3001** on branch `session/all-features` (which has
 4. Contributors visit `/contribute/[slug]` and submit text **and/or** any combination of photos/voice/video; files upload directly to MinIO via presigned PUT; server verifies each object exists before persisting the `MediaItem` rows.
 5. Admin (any user whose email domain is in `ADMIN_EMAIL_DOMAINS`, or whose `User.role = ADMIN`) opens `/admin`, sees all events sorted by SLA risk (RED first), drills into one, and approves / rejects / flags each submission with an optional note. Every decision writes an `AuditLog` row.
 
-## UI redesign via Google Stitch (deferred)
+## UI redesign via Google Stitch (groundwork done; screens still TODO)
 
-- **Stitch MCP added** to user config at `~/.claude.json` (HTTP transport, project-level API key).
+- **Stitch MCP added** to user config at `~/.claude.json` (HTTP transport with project-level API key). The MCP only loads in tools after a Claude Code restart, but Stitch is also callable directly via HTTPS + JSON-RPC at `https://stitch.googleapis.com/mcp` — that's how everything below was done this session.
 - **Stitch project created**: `projects/15583343738600864697` ("Swara Magical Memories"), PRIVATE.
-- The MCP only loads on next Claude Code restart, but Stitch is also callable directly via HTTPS + JSON-RPC at `https://stitch.googleapis.com/mcp` using the X-Goog-Api-Key header — that's how I created the project this session.
-- **Why no screens were generated**: `generate_screen_from_text` returned a JSON parse error on the first attempt (likely my payload formatting in the shell heredoc). With time running short, I prioritized backend completeness over re-debugging the Stitch payload. A future session can:
-  1. Restart Claude Code so the Stitch MCP tools load directly (cleaner than curl).
-  2. Call `generate_screen_from_text` per shipped page with the brand prompt drafted at `/tmp/stitch_landing.json` (a working starter prompt is included there).
-  3. Translate each generated screen's HTML/Tailwind to TSX, preserving the server actions in `(organizer)/events/actions.ts`, `(admin)/admin/events/[id]/actions.ts`, and `contribute/[slug]/actions.ts`.
+- **Stitch design system generated**: `assets/58d9cf995ad64503aaf81dfac6496449` ("Tribute & Legacy"). The full styleGuidelines string is saved at `docs/STITCH_DESIGN_SYSTEM.md` — it's a thoughtful, brand-aligned guide (minimalist-with-tactile-touch, 12-col fluid grid with 64px desktop margins, 8px spacing rhythm, editorial typography). Use it as the source for any future Stitch screen generations.
+- **Why no screens landed in TSX this session**: my first `generate_screen_from_text` call hit a payload formatting bug; the corrected second call returned the design system but did not include an actual screen object (the API may stage design-system creation separately from screen generation, or the screen needed a follow-up call passing the new `designSystem` asset ID). With the autonomous window almost up I prioritized stabilizing the backend stories over diving back into Stitch.
+- **Next session can finish this** by calling `generate_screen_from_text` again, this time **passing the design system asset id** (`assets/58d9cf995ad64503aaf81dfac6496449`) so screens render in the brand-consistent style. Then translate each generated screen to TSX in the existing app structure, keeping the server actions (`(organizer)/events/actions.ts`, `(admin)/admin/events/[id]/actions.ts`, `contribute/[slug]/actions.ts`) intact.
 
 ## Infrastructure
 
