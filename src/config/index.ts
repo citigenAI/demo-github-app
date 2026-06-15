@@ -34,6 +34,21 @@ const ConfigSchema = z
       publishableKey: z.string().optional(),
       webhookSecret: z.string().optional(),
     }),
+    storage: z.object({
+      endpoint: z.string().url(),
+      bucket: z.string().min(1),
+      region: z.string().min(1),
+      accessKeyId: z.string().min(1),
+      secretAccessKey: z.string().min(1),
+      forcePathStyle: z.boolean().default(false),
+    }),
+    media: z.object({
+      maxVideoBytes: z.coerce.number().int().positive().default(524288000),
+      maxVoiceBytes: z.coerce.number().int().positive().default(52428800),
+      maxPhotoBytes: z.coerce.number().int().positive().default(26214400),
+      maxFilesPerSubmission: z.coerce.number().int().positive().default(30),
+      maxTotalBytesPerSubmission: z.coerce.number().int().positive().default(1073741824),
+    }),
   })
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -65,6 +80,21 @@ function loadConfig(): Config {
       secretKey: rawEnv.STRIPE_SECRET_KEY || undefined,
       publishableKey: rawEnv.STRIPE_PUBLISHABLE_KEY || undefined,
       webhookSecret: rawEnv.STRIPE_WEBHOOK_SECRET || undefined,
+    },
+    storage: {
+      endpoint: rawEnv.S3_ENDPOINT,
+      bucket: rawEnv.S3_BUCKET,
+      region: rawEnv.S3_REGION,
+      accessKeyId: rawEnv.S3_ACCESS_KEY_ID,
+      secretAccessKey: rawEnv.S3_SECRET_ACCESS_KEY,
+      forcePathStyle: rawEnv.S3_FORCE_PATH_STYLE === 'true',
+    },
+    media: {
+      maxVideoBytes: rawEnv.MEDIA_MAX_VIDEO_BYTES,
+      maxVoiceBytes: rawEnv.MEDIA_MAX_VOICE_BYTES,
+      maxPhotoBytes: rawEnv.MEDIA_MAX_PHOTO_BYTES,
+      maxFilesPerSubmission: rawEnv.MEDIA_MAX_FILES_PER_SUBMISSION,
+      maxTotalBytesPerSubmission: rawEnv.MEDIA_MAX_TOTAL_BYTES_PER_SUBMISSION,
     },
   });
 

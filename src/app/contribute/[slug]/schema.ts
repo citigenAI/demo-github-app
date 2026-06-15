@@ -7,9 +7,21 @@ export function isBusiness(occasionType: string): boolean {
   return BUSINESS_OCCASIONS.has(occasionType);
 }
 
+export const MediaItemRefSchema = z.object({
+  mediaId: z.string().min(8).max(40),
+  storageKey: z.string().min(1).max(512),
+  type: z.enum(['VIDEO', 'VOICE', 'PHOTO']),
+  originalName: z.string().min(1).max(255),
+  sizeBytes: z.number().int().positive(),
+  mimeType: z.string().min(1).max(120),
+});
+
+export type MediaItemRef = z.infer<typeof MediaItemRefSchema>;
+
 export const SubmitContributionSchema = z
   .object({
     slug: z.string().min(1),
+    draftSubmissionId: z.string().min(8).max(40),
     contributorName: z.string().trim().min(1, 'Please add your name.').max(120),
     relationship: z.string().trim().min(1).max(120),
     email: z.string().trim().toLowerCase().email('Please enter a valid email.').max(254),
@@ -19,19 +31,21 @@ export const SubmitContributionSchema = z
     professionalNote: z.string().max(5000, 'Keep this under 5000 characters.').optional().default(''),
     isBusiness: z.boolean(),
     consentGiven: z.literal(true, { errorMap: () => ({ message: 'Consent is required to include your submission.' }) }),
+    mediaItems: z.array(MediaItemRefSchema).max(30).optional().default([]),
   })
   .superRefine((data, ctx) => {
-    const hasContent =
+    const hasText =
       data.textMessage.trim().length > 0 ||
       data.funnyMemory.trim().length > 0 ||
       data.advice.trim().length > 0 ||
       (data.isBusiness && data.professionalNote.trim().length > 0);
+    const hasMedia = data.mediaItems.length > 0;
 
-    if (!hasContent) {
+    if (!hasText && !hasMedia) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['textMessage'],
-        message: 'Add at least one message before submitting.',
+        message: 'Add a message or at least one photo, video, or voice note before submitting.',
       });
     }
   });

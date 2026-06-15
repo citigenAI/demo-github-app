@@ -7,6 +7,7 @@ void SLUG_REGEX; // suppress unused warning
 function validPayload(overrides: Record<string, unknown> = {}) {
   return {
     slug: 'riyas-graduation',
+    draftSubmissionId: 'draftsubmissionid12345678',
     contributorName: 'Priya Sharma',
     relationship: 'Friend',
     email: 'priya@example.com',
@@ -16,6 +17,7 @@ function validPayload(overrides: Record<string, unknown> = {}) {
     professionalNote: '',
     isBusiness: false,
     consentGiven: true as const,
+    mediaItems: [],
     ...overrides,
   };
 }

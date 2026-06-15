@@ -123,9 +123,35 @@ model Submission {
   adminNote        String?
   submittedAt      DateTime         @default(now())
   ipAddress        String?
+  mediaItems       MediaItem[]
 
   @@unique([eventId, email])
   @@index([eventId, status])
+}
+
+model MediaItem {
+  id            String     @id @default(cuid())
+  submissionId  String
+  submission    Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  type          MediaType
+  storagePath   String
+  originalName  String
+  sizeBytes     Int
+  mimeType      String
+  qualityScore  Float?
+  qualityFlags  String[]   @default([])
+  duration      Int?
+  width         Int?
+  height        Int?
+  uploadedAt    DateTime   @default(now())
+
+  @@index([submissionId])
+}
+
+enum MediaType {
+  VIDEO
+  VOICE
+  PHOTO
 }
 
 model AuditLog {

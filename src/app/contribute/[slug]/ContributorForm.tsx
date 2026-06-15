@@ -1,14 +1,40 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { submitContribution } from './actions';
-import type { SubmitContributionInput } from './schema';
+import type { SubmitContributionInput, MediaItemRef } from './schema';
 
 interface Props {
   slug: string;
   honoreeName: string;
   isBusiness: boolean;
 }
+
+type FileState = 'queued' | 'uploading' | 'uploaded' | 'error';
+
+interface UploadEntry {
+  localId: string;
+  file: File;
+  type: 'VIDEO' | 'VOICE' | 'PHOTO';
+  state: FileState;
+  errorMessage?: string;
+  mediaId?: string;
+  storageKey?: string;
+}
+
+const MAX_CONCURRENT = 3;
+
+const ACCEPT_BY_TYPE: Record<'VIDEO' | 'VOICE' | 'PHOTO', string> = {
+  VIDEO: 'video/mp4,video/quicktime,.mp4,.mov',
+  VOICE: 'audio/mpeg,audio/mp4,audio/x-m4a,.mp3,.m4a',
+  PHOTO: 'image/jpeg,image/png,.jpg,.jpeg,.png',
+};
+
+const SIZE_LIMIT_LABEL: Record<'VIDEO' | 'VOICE' | 'PHOTO', string> = {
+  VIDEO: '500 MB',
+  VOICE: '50 MB',
+  PHOTO: '25 MB',
+};
 
 const inputClass =
   'w-full rounded-lg border border-brand-stone/20 bg-white px-3 py-2 text-sm text-brand-ink placeholder:text-brand-stone/50 focus:outline-none focus:ring-2 focus:ring-brand-saffron/40 focus:border-brand-saffron';
@@ -41,19 +67,166 @@ function Field({
   );
 }
 
+function newLocalId(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function newDraftId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID().replace(/-/g, '');
+  }
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+function humanSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
   const [isPending, startTransition] = useTransition();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState('');
+  const [entries, setEntries] = useState<UploadEntry[]>([]);
+  const draftSubmissionIdRef = useRef<string>('');
+
+  useEffect(() => {
+    draftSubmissionIdRef.current = newDraftId();
+  }, []);
+
+  const inFlightCount = useMemo(
+    () => entries.filter((e) => e.state === 'uploading').length,
+    [entries],
+  );
+
+  // Pump the queue: start uploads for queued items up to MAX_CONCURRENT.
+  useEffect(() => {
+    const free = MAX_CONCURRENT - inFlightCount;
+    if (free <= 0) return;
+    const toStart = entries.filter((e) => e.state === 'queued').slice(0, free);
+    if (toStart.length === 0) return;
+
+    setEntries((prev) =>
+      prev.map((e) =>
+        toStart.find((t) => t.localId === e.localId) ? { ...e, state: 'uploading' } : e,
+      ),
+    );
+
+    toStart.forEach((entry) => {
+      void uploadOne(entry);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, inFlightCount]);
+
+  async function uploadOne(entry: UploadEntry) {
+    try {
+      // Step 1: presign
+      const presignRes = await fetch(`/api/contribute/${slug}/uploads/presign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileType: entry.type,
+          mimeType: entry.file.type,
+          originalName: entry.file.name,
+          sizeBytes: entry.file.size,
+          draftSubmissionId: draftSubmissionIdRef.current,
+        }),
+      });
+      if (!presignRes.ok) {
+        const data = await presignRes.json().catch(() => ({}));
+        markEntry(entry.localId, {
+          state: 'error',
+          errorMessage:
+            data.error === 'FILE_TOO_LARGE'
+              ? `File exceeds the ${SIZE_LIMIT_LABEL[entry.type]} limit.`
+              : data.error === 'UNSUPPORTED_MEDIA_TYPE'
+                ? 'This file type is not supported.'
+                : data.error === 'DEADLINE_PASSED'
+                  ? 'Submissions have closed.'
+                  : 'Could not start upload. Try again.',
+        });
+        return;
+      }
+      const { mediaId, storageKey, upload } = await presignRes.json();
+
+      // Step 2: PUT bytes
+      const putRes = await fetch(upload.url, {
+        method: 'PUT',
+        headers: upload.headers,
+        body: entry.file,
+      });
+      if (!putRes.ok) {
+        markEntry(entry.localId, { state: 'error', errorMessage: 'Upload failed. Try again.' });
+        return;
+      }
+      markEntry(entry.localId, { state: 'uploaded', mediaId, storageKey });
+    } catch {
+      markEntry(entry.localId, { state: 'error', errorMessage: 'Upload failed. Try again.' });
+    }
+  }
+
+  function markEntry(localId: string, patch: Partial<UploadEntry>) {
+    setEntries((prev) => prev.map((e) => (e.localId === localId ? { ...e, ...patch } : e)));
+  }
+
+  function handlePick(type: 'VIDEO' | 'VOICE' | 'PHOTO', files: FileList | null) {
+    if (!files) return;
+    const additions: UploadEntry[] = [];
+    for (const file of Array.from(files)) {
+      additions.push({
+        localId: newLocalId(),
+        file,
+        type,
+        state: 'queued',
+      });
+    }
+    setEntries((prev) => [...prev, ...additions]);
+  }
+
+  function removeEntry(localId: string) {
+    setEntries((prev) => prev.filter((e) => e.localId !== localId));
+  }
+
+  function retryEntry(localId: string) {
+    markEntry(localId, { state: 'queued', errorMessage: undefined });
+  }
+
+  const allFilesTerminal = entries.every((e) => e.state === 'uploaded' || e.state === 'error');
+  const hasUploading = entries.some((e) => e.state === 'uploading' || e.state === 'queued');
+  const submitDisabled = isPending || hasUploading;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setFieldErrors({});
     setFormError('');
 
+    if (!allFilesTerminal) {
+      setFormError('Wait for all files to finish uploading.');
+      return;
+    }
+
+    const erroredItems = entries.filter((x) => x.state === 'error');
+    if (erroredItems.length > 0) {
+      setFormError('Remove or retry the files marked with errors before submitting.');
+      return;
+    }
+
     const fd = new FormData(e.currentTarget);
+    const mediaItems: MediaItemRef[] = entries
+      .filter((x) => x.state === 'uploaded' && x.mediaId && x.storageKey)
+      .map((x) => ({
+        mediaId: x.mediaId!,
+        storageKey: x.storageKey!,
+        type: x.type,
+        originalName: x.file.name,
+        sizeBytes: x.file.size,
+        mimeType: x.file.type,
+      }));
+
     const input: SubmitContributionInput = {
       slug,
+      draftSubmissionId: draftSubmissionIdRef.current,
       contributorName: fd.get('contributorName') as string,
       relationship: fd.get('relationship') as string,
       email: fd.get('email') as string,
@@ -63,14 +236,14 @@ export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
       professionalNote: (fd.get('professionalNote') as string) || '',
       isBusiness,
       consentGiven: fd.get('consentGiven') === 'on' ? true : (false as unknown as true),
+      mediaItems,
     };
 
     startTransition(async () => {
       const result = await submitContribution(input);
-      if (!result) return; // redirect() was called — navigation already happening
+      if (!result) return;
       if ('fieldErrors' in result && result.fieldErrors) {
         setFieldErrors(result.fieldErrors);
-        // Focus first error field
         const firstKey = Object.keys(result.fieldErrors)[0];
         if (firstKey) {
           const el = document.getElementById(firstKey);
@@ -89,7 +262,6 @@ export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5" aria-label="Contribution form">
-      {/* Errors live region */}
       <div aria-live="polite" aria-atomic="true">
         {formError && (
           <div role="alert" className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
@@ -99,90 +271,113 @@ export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
       </div>
 
       <Field id="contributorName" label="Your name" required error={fieldErrors.contributorName}>
-        <input
-          id="contributorName"
-          name="contributorName"
-          type="text"
-          maxLength={120}
-          required
-          aria-required="true"
-          aria-describedby={fieldErrors.contributorName ? 'contributorName-error' : undefined}
-          className={inputClass}
-        />
+        <input id="contributorName" name="contributorName" type="text" maxLength={120} required className={inputClass} />
       </Field>
 
       <Field id="relationship" label={relationshipLabel} required error={fieldErrors.relationship}>
-        <input
-          id="relationship"
-          name="relationship"
-          type="text"
-          maxLength={120}
-          required
-          aria-required="true"
-          aria-describedby={fieldErrors.relationship ? 'relationship-error' : undefined}
-          className={inputClass}
-        />
+        <input id="relationship" name="relationship" type="text" maxLength={120} required className={inputClass} />
       </Field>
 
       <Field id="email" label="Your email" required error={fieldErrors.email}>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          maxLength={254}
-          required
-          aria-required="true"
-          aria-describedby={fieldErrors.email ? 'email-error' : undefined}
-          className={inputClass}
-          placeholder="you@example.com"
-        />
+        <input id="email" name="email" type="email" maxLength={254} required className={inputClass} placeholder="you@example.com" />
       </Field>
 
-      <Field id="textMessage" label={isBusiness ? 'Your message' : 'Your message'} error={fieldErrors.textMessage}>
-        <textarea
-          id="textMessage"
-          name="textMessage"
-          rows={4}
-          maxLength={5000}
-          aria-describedby={fieldErrors.textMessage ? 'textMessage-error' : undefined}
-          className={textareaClass}
-        />
+      <Field id="textMessage" label="Your message" error={fieldErrors.textMessage}>
+        <textarea id="textMessage" name="textMessage" rows={4} maxLength={5000} className={textareaClass} />
       </Field>
 
       <Field id="funnyMemory" label={isBusiness ? 'A highlight / achievement' : 'A funny memory'} error={fieldErrors.funnyMemory}>
-        <textarea
-          id="funnyMemory"
-          name="funnyMemory"
-          rows={3}
-          maxLength={5000}
-          aria-describedby={fieldErrors.funnyMemory ? 'funnyMemory-error' : undefined}
-          className={textareaClass}
-        />
+        <textarea id="funnyMemory" name="funnyMemory" rows={3} maxLength={5000} className={textareaClass} />
       </Field>
 
       <Field id="advice" label={isBusiness ? 'Advice or words for the road ahead' : 'Advice or a blessing'} error={fieldErrors.advice}>
-        <textarea
-          id="advice"
-          name="advice"
-          rows={3}
-          maxLength={5000}
-          aria-describedby={fieldErrors.advice ? 'advice-error' : undefined}
-          className={textareaClass}
-        />
+        <textarea id="advice" name="advice" rows={3} maxLength={5000} className={textareaClass} />
       </Field>
 
       {isBusiness && (
         <Field id="professionalNote" label="A professional note" error={fieldErrors.professionalNote}>
-          <textarea
-            id="professionalNote"
-            name="professionalNote"
-            rows={3}
-            maxLength={5000}
-            aria-describedby={fieldErrors.professionalNote ? 'professionalNote-error' : undefined}
-            className={textareaClass}
-          />
+          <textarea id="professionalNote" name="professionalNote" rows={3} maxLength={5000} className={textareaClass} />
         </Field>
       )}
+
+      {/* Media pickers */}
+      <fieldset className="border border-brand-stone/10 rounded-xl p-4 space-y-3">
+        <legend className="text-sm font-medium text-brand-ink px-1">Add photos, video, or voice</legend>
+        <p className="text-xs text-brand-stone">
+          Optional. Files upload as you pick them. Limits: photos {SIZE_LIMIT_LABEL.PHOTO}, voice {SIZE_LIMIT_LABEL.VOICE}, video {SIZE_LIMIT_LABEL.VIDEO} per file.
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {(['PHOTO', 'VOICE', 'VIDEO'] as const).map((t) => (
+            <label
+              key={t}
+              className="cursor-pointer text-center border border-brand-stone/20 rounded-lg px-3 py-2 text-xs text-brand-ink hover:border-brand-saffron hover:bg-brand-saffron/5"
+            >
+              {t === 'PHOTO' ? '📷 Photos' : t === 'VOICE' ? '🎙 Voice' : '🎥 Video'}
+              <input
+                type="file"
+                multiple
+                accept={ACCEPT_BY_TYPE[t]}
+                className="hidden"
+                onChange={(e) => {
+                  handlePick(t, e.target.files);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          ))}
+        </div>
+
+        {entries.length > 0 && (
+          <ul className="space-y-2 mt-2">
+            {entries.map((e) => (
+              <li
+                key={e.localId}
+                className="flex items-center justify-between gap-3 text-xs border border-brand-stone/10 rounded-lg px-3 py-2 bg-white"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-brand-ink">{e.file.name}</p>
+                  <p className="text-brand-stone">
+                    {e.type} · {humanSize(e.file.size)}
+                  </p>
+                  {e.errorMessage && <p className="text-red-600">{e.errorMessage}</p>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                      e.state === 'uploaded'
+                        ? 'bg-green-100 text-green-700'
+                        : e.state === 'error'
+                          ? 'bg-red-100 text-red-700'
+                          : e.state === 'uploading'
+                            ? 'bg-brand-saffron/10 text-brand-saffron'
+                            : 'bg-brand-stone/10 text-brand-stone'
+                    }`}
+                  >
+                    {e.state}
+                  </span>
+                  {e.state === 'error' && (
+                    <button
+                      type="button"
+                      onClick={() => retryEntry(e.localId)}
+                      className="text-brand-saffron underline"
+                    >
+                      Retry
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeEntry(e.localId)}
+                    aria-label={`Remove ${e.file.name}`}
+                    className="text-brand-stone hover:text-red-600"
+                  >
+                    ×
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </fieldset>
 
       <div>
         <label className="flex items-start gap-3 cursor-pointer">
@@ -191,7 +386,6 @@ export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
             name="consentGiven"
             type="checkbox"
             aria-required="true"
-            aria-describedby={fieldErrors.consentGiven ? 'consentGiven-error' : undefined}
             className="mt-0.5 accent-brand-saffron h-4 w-4"
           />
           <span className="text-sm text-brand-ink">
@@ -203,10 +397,10 @@ export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={submitDisabled}
         className="w-full bg-brand-saffron text-white py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
       >
-        {isPending ? 'Sending...' : 'Submit your contribution'}
+        {isPending ? 'Sending...' : hasUploading ? 'Waiting for files...' : 'Submit your contribution'}
       </button>
     </form>
   );
