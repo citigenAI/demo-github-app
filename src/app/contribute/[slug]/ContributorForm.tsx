@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { Camera, Mic, Video, X } from 'lucide-react';
 import { submitContribution } from './actions';
 import type { SubmitContributionInput, MediaItemRef } from './schema';
 
@@ -37,7 +38,7 @@ const SIZE_LIMIT_LABEL: Record<'VIDEO' | 'VOICE' | 'PHOTO', string> = {
 };
 
 const inputClass =
-  'w-full rounded-lg border border-brand-stone/20 bg-white px-3 py-2 text-sm text-brand-ink placeholder:text-brand-stone/50 focus:outline-none focus:ring-2 focus:ring-brand-saffron/40 focus:border-brand-saffron';
+  'w-full rounded-lg border border-brand-ink/12 bg-brand-ivory/50 px-4 py-3 text-sm text-brand-ink placeholder:text-brand-stone/50 focus:outline-none focus:ring-2 focus:ring-brand-deep-saffron/30 focus:border-brand-deep-saffron transition-colors';
 
 const textareaClass = inputClass + ' resize-none';
 
@@ -56,10 +57,10 @@ function Field({
   id: string; label: string; required?: boolean; error?: string; children: React.ReactNode;
 }) {
   return (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-brand-ink mb-1">
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs uppercase tracking-wider text-brand-stone font-medium">
         {label}
-        {required && <span aria-label="required" className="text-brand-saffron ml-1">*</span>}
+        {required && <span aria-label="required" className="text-brand-deep-saffron ml-1 normal-case tracking-normal">*</span>}
       </label>
       {children}
       <FieldError id={`${id}-error`} message={error} />
@@ -261,7 +262,7 @@ export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
     : `Your relationship to ${honoreeName}`;
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-5" aria-label="Contribution form">
+    <form onSubmit={handleSubmit} noValidate className="space-y-7" aria-label="Contribution form">
       <div aria-live="polite" aria-atomic="true">
         {formError && (
           <div role="alert" className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
@@ -270,16 +271,18 @@ export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
         )}
       </div>
 
-      <Field id="contributorName" label="Your name" required error={fieldErrors.contributorName}>
-        <input id="contributorName" name="contributorName" type="text" maxLength={120} required className={inputClass} />
-      </Field>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <Field id="contributorName" label="Your name" required error={fieldErrors.contributorName}>
+          <input id="contributorName" name="contributorName" type="text" maxLength={120} required className={inputClass} placeholder="Your full name" />
+        </Field>
 
-      <Field id="relationship" label={relationshipLabel} required error={fieldErrors.relationship}>
-        <input id="relationship" name="relationship" type="text" maxLength={120} required className={inputClass} />
-      </Field>
+        <Field id="relationship" label={relationshipLabel} required error={fieldErrors.relationship}>
+          <input id="relationship" name="relationship" type="text" maxLength={120} required className={inputClass} placeholder="e.g. Childhood friend, Cousin" />
+        </Field>
+      </div>
 
       <Field id="email" label="Your email" required error={fieldErrors.email}>
-        <input id="email" name="email" type="email" maxLength={254} required className={inputClass} placeholder="you@example.com" />
+        <input id="email" name="email" type="email" maxLength={254} required className={inputClass} placeholder="name@example.com" />
       </Field>
 
       <Field id="textMessage" label="Your message" error={fieldErrors.textMessage}>
@@ -301,30 +304,39 @@ export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
       )}
 
       {/* Media pickers */}
-      <fieldset className="border border-brand-stone/10 rounded-xl p-4 space-y-3">
-        <legend className="text-sm font-medium text-brand-ink px-1">Add photos, video, or voice</legend>
-        <p className="text-xs text-brand-stone">
-          Optional. Files upload as you pick them. Limits: photos {SIZE_LIMIT_LABEL.PHOTO}, voice {SIZE_LIMIT_LABEL.VOICE}, video {SIZE_LIMIT_LABEL.VIDEO} per file.
+      <fieldset className="border border-brand-ink/12 rounded-xl p-5 space-y-4 bg-brand-ivory/30">
+        <legend className="px-2 text-xs uppercase tracking-wider text-brand-stone font-medium">Add photos, video, or voice</legend>
+        <p className="text-xs text-brand-stone/80 -mt-1">
+          Optional. Files upload as you pick them. Max per file: photos {SIZE_LIMIT_LABEL.PHOTO}, voice {SIZE_LIMIT_LABEL.VOICE}, video {SIZE_LIMIT_LABEL.VIDEO}.
         </p>
-        <div className="grid grid-cols-3 gap-2">
-          {(['PHOTO', 'VOICE', 'VIDEO'] as const).map((t) => (
-            <label
-              key={t}
-              className="cursor-pointer text-center border border-brand-stone/20 rounded-lg px-3 py-2 text-xs text-brand-ink hover:border-brand-saffron hover:bg-brand-saffron/5"
-            >
-              {t === 'PHOTO' ? '📷 Photos' : t === 'VOICE' ? '🎙 Voice' : '🎥 Video'}
-              <input
-                type="file"
-                multiple
-                accept={ACCEPT_BY_TYPE[t]}
-                className="hidden"
-                onChange={(e) => {
-                  handlePick(t, e.target.files);
-                  e.target.value = '';
-                }}
-              />
-            </label>
-          ))}
+        <div className="grid grid-cols-3 gap-3">
+          {(['PHOTO', 'VOICE', 'VIDEO'] as const).map((t) => {
+            const Icon = t === 'PHOTO' ? Camera : t === 'VOICE' ? Mic : Video;
+            const label = t === 'PHOTO' ? 'Photos' : t === 'VOICE' ? 'Voice' : 'Video';
+            return (
+              <label
+                key={t}
+                className="group cursor-pointer flex flex-col items-center justify-center gap-2 py-5 border border-brand-ink/10 rounded-lg bg-white text-brand-ink hover:border-brand-deep-saffron hover:bg-brand-deep-saffron/5 transition-all"
+              >
+                <Icon
+                  size={22}
+                  strokeWidth={1.75}
+                  className="text-brand-deep-saffron group-hover:scale-110 transition-transform"
+                />
+                <span className="text-xs font-medium text-brand-stone group-hover:text-brand-deep-saffron transition-colors">{label}</span>
+                <input
+                  type="file"
+                  multiple
+                  accept={ACCEPT_BY_TYPE[t]}
+                  className="hidden"
+                  onChange={(e) => {
+                    handlePick(t, e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            );
+          })}
         </div>
 
         {entries.length > 0 && (
@@ -368,9 +380,9 @@ export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
                     type="button"
                     onClick={() => removeEntry(e.localId)}
                     aria-label={`Remove ${e.file.name}`}
-                    className="text-brand-stone hover:text-red-600"
+                    className="w-6 h-6 flex items-center justify-center rounded-full text-brand-stone hover:bg-red-100 hover:text-red-600 transition-colors"
                   >
-                    ×
+                    <X size={14} strokeWidth={2} />
                   </button>
                 </div>
               </li>
@@ -379,16 +391,16 @@ export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
         )}
       </fieldset>
 
-      <div>
+      <div className="pt-2">
         <label className="flex items-start gap-3 cursor-pointer">
           <input
             id="consentGiven"
             name="consentGiven"
             type="checkbox"
             aria-required="true"
-            className="mt-0.5 accent-brand-saffron h-4 w-4"
+            className="mt-0.5 accent-brand-deep-saffron h-5 w-5 rounded"
           />
-          <span className="text-sm text-brand-ink">
+          <span className="text-sm text-brand-stone leading-relaxed">
             I consent to my submission being used in the tribute video.
           </span>
         </label>
@@ -398,7 +410,7 @@ export function ContributorForm({ slug, honoreeName, isBusiness }: Props) {
       <button
         type="submit"
         disabled={submitDisabled}
-        className="w-full bg-brand-saffron text-white py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+        className="w-full bg-brand-deep-saffron hover:opacity-90 text-white py-3.5 rounded-full text-sm font-medium transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none"
       >
         {isPending ? 'Sending...' : hasUploading ? 'Waiting for files...' : 'Submit your contribution'}
       </button>
