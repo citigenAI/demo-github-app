@@ -3,7 +3,12 @@ import { headers } from 'next/headers';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { db } from '@/lib/db';
-import { buildMediaKey, canonicalExtension, createPresignedUpload } from '@/lib/storage';
+import {
+  buildMediaKey,
+  canonicalExtension,
+  createPresignedUpload,
+  isStorageConfigured,
+} from '@/lib/storage';
 import { checkContributorRateLimit } from '@/lib/ratelimit';
 import { logger } from '@/lib/logger';
 import { MEDIA_ALLOWLIST, sizeLimitFor } from '@/lib/media';
@@ -27,6 +32,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
+  if (!isStorageConfigured()) {
+    return NextResponse.json({ error: 'STORAGE_NOT_CONFIGURED' }, { status: 503 });
+  }
+
   const ip = await resolveIp();
   const { allowed } = await checkContributorRateLimit(ip);
   if (!allowed) {

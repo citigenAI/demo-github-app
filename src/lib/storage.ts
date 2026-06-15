@@ -4,15 +4,39 @@ import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { config } from '@/config';
 import { logger } from '@/lib/logger';
 
-const client = new S3Client({
-  endpoint: config.storage.endpoint,
-  region: config.storage.region,
-  credentials: {
-    accessKeyId: config.storage.accessKeyId,
-    secretAccessKey: config.storage.secretAccessKey,
-  },
-  forcePathStyle: config.storage.forcePathStyle,
-});
+/**
+ * True when every storage credential is present. Routes that need uploads
+ * should check this before touching the S3 client and return a clear 503.
+ */
+export function isStorageConfigured(): boolean {
+  return Boolean(
+    config.storage.endpoint &&
+      config.storage.bucket &&
+      config.storage.region &&
+      config.storage.accessKeyId &&
+      config.storage.secretAccessKey,
+  );
+}
+
+let _client: S3Client | null = null;
+
+function getClient(): S3Client {
+  if (!isStorageConfigured()) {
+    throw new Error('STORAGE_NOT_CONFIGURED');
+  }
+  if (!_client) {
+    _client = new S3Client({
+      endpoint: config.storage.endpoint!,
+      region: config.storage.region!,
+      credentials: {
+        accessKeyId: config.storage.accessKeyId!,
+        secretAccessKey: config.storage.secretAccessKey!,
+      },
+      forcePathStyle: config.storage.forcePathStyle,
+    });
+  }
+  return _client;
+}
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   'video/mp4': 'mp4',
@@ -42,8 +66,9 @@ export async function createPresignedUpload(args: {
   contentType: string;
   expiresInSeconds?: number;
 }): Promise<{ url: string; method: 'PUT'; headers: Record<string, string> }> {
+  const client = getClient();
   const command = new PutObjectCommand({
-    Bucket: config.storage.bucket,
+    Bucket: config.storage.bucket!,
     Key: args.key,
     ContentType: args.contentType,
   });
@@ -59,8 +84,9 @@ export async function headObject(key: string): Promise<{
   contentLength?: number;
 }> {
   try {
+    const client = getClient();
     const res = await client.send(
-      new HeadObjectCommand({ Bucket: config.storage.bucket, Key: key }),
+      new HeadObjectCommand({ Bucket: config.storage.bucket!, Key: key }),
     );
     return {
       exists: true,
@@ -83,5 +109,3 @@ export async function headObject(key: string): Promise<{
     throw err;
   }
 }
-
-export { client as s3Client };

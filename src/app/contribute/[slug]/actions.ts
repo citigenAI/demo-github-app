@@ -7,7 +7,7 @@ import { logger } from '@/lib/logger';
 import { checkContributorRateLimit } from '@/lib/ratelimit';
 import { SubmitContributionSchema, COLLECTING_STATUSES, type MediaItemRef } from './schema';
 import type { SubmitContributionInput } from './schema';
-import { headObject, buildMediaKey, canonicalExtension } from '@/lib/storage';
+import { headObject, buildMediaKey, canonicalExtension, isStorageConfigured } from '@/lib/storage';
 import { isMediaTypeAllowed, sizeLimitFor } from '@/lib/media';
 
 type FieldErrors = Record<string, string>;
@@ -94,6 +94,16 @@ export async function submitContribution(input: SubmitContributionInput): Promis
   const { allowed } = await checkContributorRateLimit(ip);
   if (!allowed) {
     return { ok: false, formError: "You've tried a few times — please wait a moment and try again." };
+  }
+
+  // If the submission references media but storage isn't configured, fail clearly
+  // rather than crashing the action. Text-only submissions still go through.
+  if (data.mediaItems.length > 0 && !isStorageConfigured()) {
+    return {
+      ok: false,
+      formError:
+        'Media uploads are temporarily unavailable. Please remove any attached files and try again.',
+    };
   }
 
   // Verify-before-save: every media item must exist in storage with allowed type/size.

@@ -34,12 +34,15 @@ const ConfigSchema = z
       publishableKey: z.string().optional(),
       webhookSecret: z.string().optional(),
     }),
+    // Optional: when any field is missing the storage service refuses to mint
+    // upload targets at call time (503), but the app still boots so unrelated
+    // routes (auth, dashboard, admin, text-only contribute) keep working.
     storage: z.object({
-      endpoint: z.string().url(),
-      bucket: z.string().min(1),
-      region: z.string().min(1),
-      accessKeyId: z.string().min(1),
-      secretAccessKey: z.string().min(1),
+      endpoint: z.string().url().optional(),
+      bucket: z.string().min(1).optional(),
+      region: z.string().min(1).optional(),
+      accessKeyId: z.string().min(1).optional(),
+      secretAccessKey: z.string().min(1).optional(),
       forcePathStyle: z.boolean().default(false),
     }),
     media: z.object({
@@ -82,11 +85,11 @@ function loadConfig(): Config {
       webhookSecret: rawEnv.STRIPE_WEBHOOK_SECRET || undefined,
     },
     storage: {
-      endpoint: rawEnv.S3_ENDPOINT,
-      bucket: rawEnv.S3_BUCKET,
-      region: rawEnv.S3_REGION,
-      accessKeyId: rawEnv.S3_ACCESS_KEY_ID,
-      secretAccessKey: rawEnv.S3_SECRET_ACCESS_KEY,
+      endpoint: rawEnv.S3_ENDPOINT || undefined,
+      bucket: rawEnv.S3_BUCKET || undefined,
+      region: rawEnv.S3_REGION || undefined,
+      accessKeyId: rawEnv.S3_ACCESS_KEY_ID || undefined,
+      secretAccessKey: rawEnv.S3_SECRET_ACCESS_KEY || undefined,
       forcePathStyle: rawEnv.S3_FORCE_PATH_STYLE === 'true',
     },
     media: {
