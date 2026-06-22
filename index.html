@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#b5651d" />
+  <title>Homemade Cake Studio</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <h1>Homemade Cake Studio</h1>
+      <p class="tagline">Baked fresh to order, with love.</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <h2>Our Cakes</h2>
+      <p>Tap a cake to add it to your order. When you're ready, send your order through WhatsApp.</p>
+    </section>
+
+    <section id="catalog" class="catalog" aria-label="Cake catalog"></section>
+  </main>
+
+  <div id="cart-bar" class="cart-bar" hidden>
+    <div class="cart-summary">
+      <span id="cart-count">0</span> in order &middot; <span id="cart-total">$0.00</span>
+    </div>
+    <button id="order-btn" class="order-btn" type="button">Send Order on WhatsApp</button>
+  </div>
+
+  <footer>
+    <p>&copy; <span id="year"></span> Homemade Cake Studio</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

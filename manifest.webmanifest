@@ -1,0 +1,19 @@
+{
+  "name": "Homemade Cake Studio",
+  "short_name": "Cake Studio",
+  "description": "Browse and order homemade cakes.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff7f0",
+  "theme_color": "#b5651d",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
